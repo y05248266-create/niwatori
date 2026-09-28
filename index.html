@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>動物パズルゲーム</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 10px 0;
+      background: #eef2f5;
+      color: #333;
+      font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Hiragino Sans', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      user-select: none;
+      touch-action: none;
+      overflow-x: hidden;
+    }
+    #game-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 500px;
+      max-width: 95vw;
+    }
+    #header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    .score-val { color: #2980b9; font-size: 16px; }
+    
+    #title-panel {
+      width: 100%;
+      background: #34495e;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #title-row-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    #title-current { color: #f1c40f; font-weight: bold; }
+    #next-title-info { font-size: 11px; color: #ddd; }
+
+    #progress-bar-bg {
+      width: 100%;
+      height: 5px;
+      background: #2c3e50;
+      border-radius: 3px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    #progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #f1c40f;
+      transition: width 0.3s ease;
+    }
+
+    #title-list-toggle {
+      background: #2c3e50;
+      color: #ddd;
+      border: none;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+    #title-list {
+      display: none;
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid #4a6278;
+      font-size: 11px;
+      line-height: 1.4;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    #title-list.show { display: block; }
+    .title-item {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dotted #4a6278;
+      padding: 1px 0;
+    }
+
+    #trivia-box {
+      width: 100%;
+      min-height: 36px;
+      background: #e8f4f8;
+      border: 1px solid #2980b9;
+      color: #1a5276;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    #next-box {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #fff;
+      padding: 1px 8px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-size: 12px;
+    }
+    #next-emoji { font-size: 18px; }
+
+    #reset-btn {
+      background: #e74c3c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    #reset-btn:active { transform: scale(0.95); }
+
+    canvas {
+      border: 3px solid #7f8c8d;
+      border-radius: 4px;
+      background: #f8f9fa;
+      cursor: pointer;
+      max-width: 100%;
+      height: auto;
+      touch-action: none;
+    }
+
+    #guide {
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      background: #fff;
+      padding: 6px 2px;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .guide-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 9px;
+      color: #444;
+      text-align: center;
+      flex: 1;
+    }
+    .guide-item span:first-child { font-size: 15px; }
+    .guide-item .guide-name {
+      font-size: 8.5px;
+      line-height: 1.1;
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="header">
+      <div>SCORE <span id="score" class="score-val">0</span></div>
+      <div id="next-box">NEXT <span id="next-emoji">🖱️</span></div>
+      <div>HIGH <span id="high-score" class="score-val">0</span></div>
+      <button id="reset-btn">RETRY</button>
+    </div>
+
+    <div id="title-panel">
+      <div id="title-row-main">
+        <div><span id="title-current">PC初心者</span></div>
+        <div id="next-title-info">次まで: <span id="pts-to-next" style="color:#f1c40f; font-weight:bold;">500</span> pt</div>
+        <button id="title-list-toggle">一覧 ▼</button>
+      </div>
+      <div id="progress-bar-bg"><div id="progress-bar-fill"></div></div>
+      <div id="title-list"></div>
+    </div>
+
+    <div id="trivia-box">💡動物を育てて合成しよう！同じ動物同士で進化するよ！</div>
+    
+    <div id="guide"></div>
+  </div>
+
+  <script>
+    const { Engine, Runner, Bodies, Composite, Events } = Matter;
+const HARDWARE = [
+  {
+    name: "たまご",
+    shortName: "たまご",
+    emoji: "🥚",
+    radius: 14,
+    score: 10,
+    type: "誕生",
+    fact: "命の始まり。大切に育てよう！"
+  },
+  {
+    name: "ひよこ",
+    shortName: "ひよこ",
+    emoji: "🐣",
+    radius: 18,
+    score: 20,
+    type: "鳥類",
+    fact: "生まれたばかりのひよこ。温かく見守ろう。"
+  },
+  {
+    name: "にわとり",
+    shortName: "にわとり",
+    emoji: "🐥",
+    radius: 28,
+    score: 40,
+    type: "鳥類",
+    fact: "成長するとたまごを産むことがある。"
+  },
+  {
+    name: "うさぎ",
+    shortName: "うさぎ",
+    emoji: "🐰",
+    radius: 38,
+    score: 80,
+    type: "哺乳類",
+    fact: "長い耳で周囲の音を聞き分ける。"
+  },
+  {
+    name: "ねこ",
+    shortName: "ねこ",
+    emoji: "🐱",
+    radius: 50,
+    score: 160,
+    type: "哺乳類",
+    fact: "高い場所へジャンプするのが得意。"
+  },
+  {
+    name: "いぬ",
+    shortName: "いぬ",
+    emoji: "🐶",
+    radius: 66,
+    score: 320,
+    type: "哺乳類",
+    fact: "人との関わりが深い動物。"
+  },
+  {
+    name: "パンダ",
+    shortName: "パンダ",
+    emoji: "🐼",
+    radius: 78,
+    score: 640,
+    type: "哺乳類",
+    fact: "竹をたくさん食べる人気者。"
+  },
+  {
+    name: "ライオン",
+    shortName: "ライオン",
+    emoji: "🦁",
+    radius: 92,
+    score: 1280,
+    type: "哺乳類",
+    fact: "百獣の王として知られている。"
+  },
+  {
+    name: "ゾウ",
+    shortName: "ゾウ",
+    emoji: "🐘",
+    radius: 106,
+    score: 2560,
+    type: "哺乳類",
+    fact: "陸上動物の中でも特に大きい。"
+  },
+  {
+    name: "クジラ",
+    shortName: "クジラ",
+    emoji: "🐋",
+    radius: 120,
+    score: 5120,
+    type: "海洋生物",
+    fact: "地球最大級の生き物。"
+  }
+];
+
+  const TITLES = [
+  { min: 30000, name: "👑 動物王国の王" },
+  { min: 8000,  name: "🐋 クジラ博士" },
+  { min: 5000,  name: "🦒 動物園マスター" },
+  { min: 3000,  name: "🐘 ベテラン飼育員" },
+  { min: 1500,  name: "🦁 動物だいすき" },
+  { min: 500,   name: "🐰 新人飼育員" },
+  { min: 0,     name: "🥚 飼育見習い" }
+];
+
+
+    // ガイドと称号リストの動的生成
+    const guideEl = document.getElementById('guide');
+    HARDWARE.forEach((itemDef) => {
+      const item = document.createElement('div');
+      item.className = 'guide-item';
+      item.innerHTML = `<span>${itemDef.emoji}</span><span class="guide-name">${itemDef.shortName}</span>`;
+      guideEl.appendChild(item);
+    });
+
+    const titleListEl = document.getElementById('title-list');
+    TITLES.slice().reverse().forEach(t => {
+      const div = document.createElement('div');
+      div.className = 'title-item';
+      div.innerHTML = `<span>${t.name}</span><span>${t.min.toLocaleString()} pt~</span>`;
+      titleListEl.appendChild(div);
+    });
+
+    let score = 0;
+    let highScore = 0;
+
+    try {
+      highScore = parseInt(localStorage.getItem('hw_high_score')) || 0;
+    } catch (e) {
+      highScore = 0;
+    }
+
+    document.getElementById('high-score').textContent = highScore;
+
+    function updateTitleUI(sc) {
+      let currentTitle = TITLES[TITLES.length - 1].name;
+      let nextMin = TITLES[TITLES.length - 2].min;
+      let currentMin = 0;
+
+      for (let i = 0; i < TITLES.length; i++) {
+        if (sc >= TITLES[i].min) {
+          currentTitle = TITLES[i].name;
+          currentMin = TITLES[i].min;
+          nextMin = (i > 0) ? TITLES[i - 1].min : TITLES[i].min;
+          break;
+        }
+      }
+
+      document.getElementById('title-current').textContent = currentTitle;
+
+      if (sc >= 12000) {
+        document.getElementById('next-title-info').innerHTML = "🏆 最高称号！";
+        document.getElementById('progress-bar-fill').style.width = "100%";
+      } else {
+        const remaining = nextMin - sc;
+        const totalGap = nextMin - currentMin;
+        const progressPercent = Math.min(100, Math.max(0, ((sc - currentMin) / totalGap) * 100));
+        
+        document.getElementById('pts-to-next').textContent = remaining;
+        document.getElementById('progress-bar-fill').style.width = `${progressPercent}%`;
+      }
+    }
+
+    updateTitleUI(highScore);
+
+    const toggleBtn = document.getElementById('title-list-toggle');
+    const titleList = document.getElementById('title-list');
+    toggleBtn.addEventListener('click', () => {
+      titleList.classList.toggle('show');
+      toggleBtn.textContent = titleList.classList.contains('show') ? "一覧 ▲" : "一覧 ▼";
+    });
+
+    let currentLevel = 0;
+    let nextLevel = Math.floor(Math.random() * 3);
+    let currentX = 250;
+    let canDrop = true;
+    let isGameOver = false;
+    let isDanger = false;
+
+    let popups = [];
+
+    const engine = Engine.create();
+    const world = engine.world;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 500;
+    canvas.height = 520;
+    document.getElementById('game-container').insertBefore(canvas, guideEl);
+
+    Runner.run(Runner.create(), engine);
+
+    // 壁の厚みを50に拡張（すり抜けバグ防止）
+    const wallOptions = { isStatic: true, friction: 0.1, restitution: 0.05 };
+    const ground = Bodies.rectangle(250, 535, 500, 50, wallOptions);
+    const leftWall = Bodies.rectangle(-20, 260, 50, 520, wallOptions);
+    const rightWall = Bodies.rectangle(520, 260, 50, 520, wallOptions);
+    Composite.add(world, [ground, leftWall, rightWall]);
+
+    function createHardwareBody(x, y, radius) {
+      return Bodies.circle(x, y, radius, {
+        restitution: 0.1,
+        friction: 0.05,
+        frictionStatic: 0.05,
+        frictionAir: 0.001,
+        density: 0.002
+      });
+    }
+
+    // タッチ・マウス位置の精密計算関数
+    function updateXPosition(clientX) {
+      const rect = canvas.getBoundingClientRect();
+      const scale = canvas.width / rect.width;
+      const relativeX = (clientX - rect.left) * scale;
+      const rad = HARDWARE[currentLevel].radius;
+      currentX = Math.max(rad + 10, Math.min(500 - rad - 10, relativeX));
+    }
+
+    function handlePointerMove(e) {
+      if (!canDrop || isGameOver) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      updateXPosition(clientX);
+    }
+
+    function handlePointerUp(e) {
+      if (!canDrop || isGameOver) return;
+      dropHardware();
+    }
+
+    canvas.addEventListener('mousemove', handlePointerMove);
+    canvas.addEventListener('mouseup', handlePointerUp);
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handlePointerMove(e);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      handlePointerMove(e);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      handlePointerUp(e);
+    }, { passive: false });
+
+    document.getElementById('reset-btn').addEventListener('click', () => {
+      location.reload();
+    });
+
+    function updateNextUI() {
+      document.getElementById('next-emoji').textContent = HARDWARE[nextLevel].emoji;
+    }
+    updateNextUI();
+
+    function displayTrivia(hw) {
+      document.getElementById('trivia-box').innerHTML = 
+        `💡 <b>${hw.emoji} ${hw.name}</b> (${hw.type}): ${hw.fact}`;
+    }
+
+    function dropHardware() {
+      canDrop = false;
+      const hwDef = HARDWARE[currentLevel];
+
+      displayTrivia(hwDef);
+
+      const hw = createHardwareBody(currentX, 50, hwDef.radius);
+      hw.hwLevel = currentLevel;
+      hw.spawnTime = Date.now();
+
+      Composite.add(world, hw);
+
+      currentLevel = nextLevel;
+      nextLevel = Math.floor(Math.random() * 3);
+      updateNextUI();
+
+      setTimeout(() => { canDrop = true; }, 450);
+    }
+
+    Events.on(engine, 'collisionStart', (event) => {
+      event.pairs.forEach((pair) => {
+        const { bodyA, bodyB } = pair;
+
+        if (bodyA.hwLevel !== undefined && bodyB.hwLevel !== undefined) {
+          if (bodyA.hwLevel === bodyB.hwLevel) {
+            const currentLvl = bodyA.hwLevel;
+            const nextLvl = currentLvl + 1;
+
+            const midX = (bodyA.position.x + bodyB.position.x) / 2;
+            const midY = (bodyA.position.y + bodyB.position.y) / 2;
+
+            Composite.remove(world, bodyA);
+            Composite.remove(world, bodyB);
+
+            const gainedScore = HARDWARE[currentLvl].score;
+            score = Math.min(99999, score + gainedScore);
+            document.getElementById('score').textContent = score;
+
+            const evolvedHw = HARDWARE[Math.min(nextLvl, HARDWARE.length - 1)];
+            displayTrivia(evolvedHw);
+
+            if (score > highScore) {
+              highScore = Math.min(99999, score);
+              document.getElementById('high-score').textContent = highScore;
+              try {
+                localStorage.setItem('hw_high_score', highScore);
+              } catch (e) {}
+              updateTitleUI(highScore);
+            }
+
+            popups.push({
+              x: midX,
+              y: midY,
+              text: `+${gainedScore}`,
+              opacity: 1.0,
+              life: 25
+            });
+
+            if (nextLvl < HARDWARE.length) {
+              const nextDef = HARDWARE[nextLvl];
+              const newHw = createHardwareBody(midX, midY, nextDef.radius);
+              newHw.hwLevel = nextLvl;
+              newHw.spawnTime = Date.now();
+
+              Composite.add(world, newHw);
+            }
+          }
+        }
+      });
+    });
+
+    const DEADLINE_Y = 85;
+    setInterval(() => {
+      if (isGameOver) return;
+      const bodies = Composite.allBodies(world);
+      const now = Date.now();
+
+      let checkDanger = false;
+
+      bodies.forEach(body => {
+        if (body.hwLevel !== undefined && (now - body.spawnTime > 1500)) {
+          const topY = body.position.y - HARDWARE[body.hwLevel].radius;
+          
+          if (topY < DEADLINE_Y + 30) {
+            checkDanger = true;
+          }
+
+          if (topY < DEADLINE_Y) {
+            isGameOver = true;
+            setTimeout(() => {
+　　　　　　　alert(`飼育終了！\n飼育ポイント: ${score}`);
+              location.reload();
+            }, 100);
+          }
+        }
+      });
+
+      isDanger = checkDanger;
+    }, 250);
+
+    let pulseAngle = 0;
+    (function renderLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      pulseAngle += 0.08;
+
+      if (isDanger) {
+        ctx.strokeStyle = `rgba(231, 76, 60, ${0.4 + Math.sin(pulseAngle) * 0.4})`;
+        ctx.lineWidth = 4;
+      } else {
+        ctx.strokeStyle = '#aaa';
+        ctx.lineWidth = 2;
+      }
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(5, DEADLINE_Y);
+      ctx.lineTo(495, DEADLINE_Y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#b0bec5';
+      ctx.fillRect(0, 510, 500, 10);
+
+      if (canDrop && !isGameOver) {
+        const currentDef = HARDWARE[currentLevel];
+
+        ctx.strokeStyle = 'rgba(150, 150, 150, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(currentX, 40);
+        ctx.lineTo(currentX, 510);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.font = `${currentDef.radius * 1.8}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = 0.85;
+        ctx.fillText(currentDef.emoji, currentX, 40);
+        ctx.globalAlpha = 1.0;
+      }
+
+      const bodies = Composite.allBodies(world);
+      bodies.forEach(body => {
+        if (body.hwLevel !== undefined) {
+          const hwDef = HARDWARE[body.hwLevel];
+          ctx.save();
+          ctx.translate(body.position.x, body.position.y);
+          ctx.rotate(body.angle);
+
+          ctx.font = `${hwDef.radius * 1.8}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(hwDef.emoji, 0, 0);
+
+          ctx.restore();
+        }
+      });
+
+      for (let i = popups.length - 1; i >= 0; i--) {
+        const p = popups[i];
+        ctx.save();
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillStyle = `rgba(41, 128, 185, ${p.opacity})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(p.text, p.x, p.y);
+        ctx.restore();
+
+        p.y -= 1;
+        p.opacity -= 0.04;
+        p.life--;
+
+        if (p.life <= 0) popups.splice(i, 1);
+      }
+
+      requestAnimationFrame(renderLoop);
+    })();
+  </script>
+</body>
+</html>
